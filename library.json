@@ -5,9 +5,9 @@
     "repository":
     {
         "type": "git",
-        "url": "https://github.com/puuu/ESPiLight.git"
+        "url": "https://github.com/puuuu/ESPiLight.git"
     },
-    "version": "0.17.0",
+    "version": "0.17.1",
     "license": "GPL-3.0",
     "frameworks": "arduino",
     "platforms":

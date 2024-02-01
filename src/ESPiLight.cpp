@@ -191,7 +191,7 @@ void ESPiLight::initReceiver(byte inputPin) {
     return;
   }
   if (_interrupt >= 0) {
-    detachInterrupt((uint8_t)_interrupt);
+    hwDetachInterrupt((uint8_t)_interrupt);
   }
   _interrupt = interrupt;
 
@@ -199,7 +199,7 @@ void ESPiLight::initReceiver(byte inputPin) {
   enableReceiver();
 
   if (interrupt >= 0) {
-    attachInterrupt((uint8_t)interrupt, interruptHandler, CHANGE);
+    hwAttachInterrupt((uint8_t)interrupt, interruptHandler, CHANGE);
   }
 }
 
@@ -221,6 +221,16 @@ uint8_t ESPiLight::nextPulseTrainLength() {
   return _pulseTrains[_avaiablePulseTrain].length;
 }
 
+#ifdef RADIOLIBSX127X
+int ESPiLight::decodePulseGapDuration(const unsigned int duration) {
+  volatile PulseTrain_t &pulseTrain = _pulseTrains[_actualPulseTrain];
+  volatile uint16_t *codes = pulseTrain.pulses;
+  int state;
+  hwSetState(-1);
+  if (pulseTrain.length == 0) {
+    //const unsigned long now = micros();
+    //const unsigned int duration = now - _lastChange;
+#else
 void ICACHE_RAM_ATTR ESPiLight::interruptHandler() {
   if (!_enabledReceiver) {
     return;
@@ -232,7 +242,7 @@ void ICACHE_RAM_ATTR ESPiLight::interruptHandler() {
   if (pulseTrain.length == 0) {
     const unsigned long now = micros();
     const unsigned int duration = now - _lastChange;
-
+#endif
     /* We first do some filtering (same as pilight BPF) */
     if (duration > minpulselen) {
       if (duration < maxpulselen) {
@@ -241,6 +251,7 @@ void ICACHE_RAM_ATTR ESPiLight::interruptHandler() {
         _nrpulses = (uint8_t)((_nrpulses + 1) % MAXPULSESTREAMLENGTH);
         /* Let's match footers */
         if (duration > mingaplen) {
+			hwSetState(0); // continue
           // Debug('g');
           /* Only match minimal length pulse streams */
           if (_nrpulses >= minrawlen && _nrpulses <= maxrawlen) {
@@ -248,15 +259,19 @@ void ICACHE_RAM_ATTR ESPiLight::interruptHandler() {
             // Debug('l');
             pulseTrain.length = _nrpulses;
             _actualPulseTrain = (_actualPulseTrain + 1) % RECEIVER_BUFFER_SIZE;
+			hwSetState(1); // done
           }
           _nrpulses = 0;
         }
       }
+#ifndef RADIOLIBSX127X
       _lastChange = now;
+#endif
     }
   } else {
     Debug("_!_");
   }
+  	hwReturn(state); // -1 abort, 0 continue, 1 done
 }
 
 void ESPiLight::resetReceiver() {
@@ -300,8 +315,8 @@ ESPiLight::ESPiLight(int8_t outputPin) {
   _echoEnabled = false;
 
   if (_outputPin >= 0) {
-    pinMode((uint8_t)_outputPin, OUTPUT);
-    digitalWrite((uint8_t)_outputPin, LOW);
+    hwPinMode((uint8_t)_outputPin, OUTPUT);
+    hwDigitalWrite((uint8_t)_outputPin, LOW);
   }
 
   get_protocols();
@@ -322,15 +337,12 @@ void ESPiLight::sendPulseTrain(const uint16_t *pulses, size_t length,
     _enabledReceiver = (_echoEnabled && receiverState);
     for (unsigned int r = 0; r < repeats; r++) {
       for (unsigned int i = 0; i < length; i += 2) {
-        digitalWrite((uint8_t)_outputPin, HIGH);
-        delayMicroseconds(pulses[i]);
-        digitalWrite((uint8_t)_outputPin, LOW);
-        if (i + 1 < length) {
-          delayMicroseconds(pulses[i + 1]);
-        }
+        hwDigitalWriteDelayMicroseconds((uint8_t)_outputPin, HIGH, pulses[i]);
+        hwDigitalWriteDelayMicroseconds((uint8_t)_outputPin, LOW,
+        	(i + 1 < length)? (pulses[i + 1]): 0);
       }
     }
-    digitalWrite((uint8_t)_outputPin, LOW);
+    hwDigitalWriteDelayMicroseconds((uint8_t)_outputPin, LOW, 0);
     _enabledReceiver = receiverState;
   }
 }

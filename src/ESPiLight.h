@@ -39,6 +39,33 @@ typedef struct PulseTrain_t {
   uint8_t length;
 } PulseTrain_t;
 
+#ifdef RADIOLIBSX127X
+// disable direct hw access
+// decode by calling decodePulseGapDuration
+#define hwPinMode(pin, mode) // pinMode(pin, mode)
+#define hwAttachInterrupt(pin, ISR, mode) // attachInterrupt((pin), ISR, mode)
+#define	hwDetachInterrupt(pin) // detachInterrupt(pin)
+#define hwDigitalWrite(pin, value) // digitalWrite(pin, value)
+#define hwSetState(x) state = (x)
+//#define hwReturn(state) return (state)
+#define hwReturn(state) return (0)
+#define hwDelayMicroseconds(duration) delayMicroseconds(duration)
+#define hwSafeDelayMicroseconds(duration) safeDelayMicroseconds(duration)
+#define hwDigitalWriteDelayMicroseconds(pin, value, duration) hwDigitalWrite(pin, value); hwDelayMicroseconds(duration)
+#define hwDigitalWriteSafeDelayMicroseconds(pin, value, duration) hwDigitalWrite(pin, value); hwSafeDelayMicroseconds(duration)
+#else // direct hardware control
+#define hwPinMode(pin, mode) pinMode(pin, mode)
+#define hwAttachInterrupt(pin, ISR, mode) attachInterrupt(pin, ISR, mode)
+#define	hwDetachInterrupt(pin) detachInterrupt(pin)
+#define hwSetState(x) // state = (x)
+#define hwReturn(state) //return (state)
+#define hwDigitalWrite(pin, value) digitalWrite(pin, value)
+#define hwDelayMicroseconds(duration) delayMicroseconds(duration)
+#define hwSafeDelayMicroseconds(duration) safeDelayMicroseconds(duration)
+#define hwDigitalWriteDelayMicroseconds(pin, value, duration) hwDigitalWrite(pin, value); hwDelayMicroseconds(duration)
+#define hwDigitalWriteSafeDelayMicroseconds(pin, value, duration) hwDigitalWrite(pin, value); hwSafeDelayMicroseconds(duration)
+#endif
+
 typedef std::function<void(const String &protocol, const String &message,
                            int status, size_t repeats, const String &deviceID)>
     ESPiLightCallBack;
@@ -81,6 +108,9 @@ class ESPiLight {
    * If set to true, the receiver will temporarely be disabled when sending.
    */
   void setEchoEnabled(bool enabled);
+#ifdef RADIOLIBSX127X
+    int decodePulseGapDuration(const unsigned int duration);
+#endif
 
   /**
    * Initialise receiver
@@ -115,8 +145,9 @@ class ESPiLight {
    * you have to call interruptHandler() yourself. (Or use
    * InterruptChain)
    */
+#ifndef RADIOLIBSX127X
   static void interruptHandler();
-
+#endif
   /**
    * Limit the available protocols.
    *
