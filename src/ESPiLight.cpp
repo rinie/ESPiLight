@@ -227,6 +227,10 @@ int ESPiLight::decodePulseGapDuration(const unsigned int duration) {
   volatile uint16_t *codes = pulseTrain.pulses;
   int state;
   hwSetState(-1);
+	if (duration == 0) { // external reset at end
+		hwReturn(0);
+	}
+
   if (pulseTrain.length == 0) {
     //const unsigned long now = micros();
     //const unsigned int duration = now - _lastChange;
